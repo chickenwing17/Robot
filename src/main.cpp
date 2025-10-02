@@ -33,10 +33,6 @@ pros::MotorGroup left_mg({1,11,-12});    // Creates a motor group with forwards 
 pros::MotorGroup right_mg({-18,-20, 10});  // Creates a motor group with forwards port 5 and reversed ports 4 & 6
   //pros::MotorGroup motor_group ({1, 2});
 
-
-
-
-
 void createbutton(lv_obj_t *obj, int x, int y, const char *text, lv_palette_t color){
 lv_obj_set_pos(obj, x, y);
 lv_obj_t* screen = lv_screen_active();
@@ -64,7 +60,7 @@ void on_center_button() {
     }
 }
 
-/** 
+
 // drivetrain settings
 lemlib::Drivetrain drivetrain(&left_mg, // left motor group
                               &right_mg, // right motor group
@@ -106,7 +102,6 @@ lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel
                             nullptr// inertial sensor
 );
 
-lemlib::Chassis chassis(drivetrain, linearController, angularController, sensors, &throttleCurve, &steerCurve);
 
 // input curve for throttle input during driver control
 lemlib::ExpoDriveCurve throttleCurve(0, // joystick deadband out of 127
@@ -118,7 +113,14 @@ lemlib::ExpoDriveCurve throttleCurve(0, // joystick deadband out of 127
 lemlib::ExpoDriveCurve steerCurve(0, // joystick deadband out of 127
                                   5, // minimum output where drivetrain will move out of 127
                                   1.02 // expo curve gain
-); */
+); 
+
+lemlib::Chassis chassis(drivetrain,
+                 linearController, 
+                 angularController, 
+                 sensors, &throttleCurve, 
+                 &steerCurve);
+
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
