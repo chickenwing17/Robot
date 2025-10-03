@@ -24,13 +24,14 @@
 
 lv_style_t pretty;
 pros::Controller master(pros::E_CONTROLLER_MASTER);
+//pros::Motor bottomroller(7);
 
 
 int selected_program;
 
 
-pros::MotorGroup left_mg({1,11,-12});    // Creates a motor group with forwards ports 1 & 3 and reversed port 2
-pros::MotorGroup right_mg({-18,-20, 10});  // Creates a motor group with forwards port 5 and reversed ports 4 & 6
+pros::MotorGroup left_mg({1,11,-12});    //11 is the stacked motor, 1 is the far motor, -12 is the motor under the stacked motor
+pros::MotorGroup right_mg({-18,-20, 10});  
   //pros::MotorGroup motor_group ({1, 2});
 
 void createbutton(lv_obj_t *obj, int x, int y, const char *text, lv_palette_t color){
@@ -130,9 +131,18 @@ lemlib::Chassis chassis(drivetrain,
 void initialize() {
     pros::lcd::initialize();
     pros::lcd::set_text(1, "Hello PROS User!");
-
-
+    chassis.calibrate();
     pros::lcd::register_btn1_cb(on_center_button);
+
+    pros::Task screenTask([&]()->void{
+        while(true) {
+            pros::lcd::print(0,"X:%f", chassis.getPose().x);
+            pros::lcd::print(1,"Y:%f", chassis.getPose().y);
+            pros::lcd::print(2,"Theta:%f", chassis.getPose().theta);
+            lemlib::telemetrySink() ->info("chassis pose: {}", chassis.getPose());
+            pros::delay(50);
+        }
+    });
 }
 
 
@@ -174,7 +184,6 @@ createbutton(buttonC,120,30,"Blue Right", (LV_PALETTE_RED));
 createbutton(buttonD,120,130,"Blue Left", (LV_PALETTE_RED));
 createbutton(buttonE,250,130,"Skills", (LV_PALETTE_RED));
 }
-
 
 
 void changeautonomous(lv_event_t*eventstart){
@@ -233,7 +242,15 @@ void opcontrol() {
         int turn = master.get_analog(ANALOG_RIGHT_X);  // Gets the turn left/right from right joystick
         left_mg.move(turn + dir);                      // Sets left motor voltage
         right_mg.move(turn - dir);                     // Sets right motor voltage
-        pros::delay(20);                               // Run for 20 ms then update
+        pros::delay(20);   
+        
+        
+
+      /**   if(master.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
+            hood.set_value(HIGH);
+        } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT)) {
+            hood.set_value(LOW);
+        }// Run for 20 ms then update*/
     }
 }
 /**
