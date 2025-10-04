@@ -24,15 +24,20 @@
 
 lv_style_t pretty;
 pros::Controller master(pros::E_CONTROLLER_MASTER);
-//pros::Motor bottomroller(7);
 
+pros::Motor frontroller(8);
+
+pros::Motor storagebottom(1);
+
+pros::Motor storagetop(4);
 
 int selected_program;
 
 
 pros::MotorGroup left_mg({1,11,-12});    //11 is the stacked motor, 1 is the far motor, -12 is the motor under the stacked motor
 pros::MotorGroup right_mg({-18,-20, 10});  
-  //pros::MotorGroup motor_group ({1, 2});
+//pros::MotorGroup left_mg ({1});
+//pros::MotorGroup right_mg ({2});
 
 void createbutton(lv_obj_t *obj, int x, int y, const char *text, lv_palette_t color){
 lv_obj_set_pos(obj, x, y);
@@ -66,7 +71,7 @@ void on_center_button() {
 lemlib::Drivetrain drivetrain(&left_mg, // left motor group
                               &right_mg, // right motor group
                               11.5, // 12 inch track width
-                              lemlib::Omniwheel::NEW_325, // using new 4" omnis
+                              lemlib::Omniwheel::NEW_325, // using new 3.25" omnis
                               450, // drivetrain rpm is 360
                               2 // horizontal drift is 2. If we had traction wheels, it would have been 8
 );
@@ -142,6 +147,7 @@ void initialize() {
             lemlib::telemetrySink() ->info("chassis pose: {}", chassis.getPose());
             pros::delay(50);
         }
+
     });
 }
 
@@ -246,13 +252,44 @@ void opcontrol() {
         
         
 
-      /**   if(master.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
-            hood.set_value(HIGH);
+         if(master.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
+            frontroller.move_voltage(12000);
         } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT)) {
-            hood.set_value(LOW);
-        }// Run for 20 ms then update*/
+            frontroller.move_voltage(-12000);
+        }
+         else {
+       frontroller.move_voltage(0);}
+
+
+
+  if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
+    {
+        storagetop.move_voltage(12000);
     }
-}
+    else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
+    {
+         storagetop.move_voltage(-12000);
+    }
+    else {
+       storagetop.move_voltage(0);
+    }
+
+
+
+      if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
+    {
+        storagebottom.move_velocity(100);
+    }
+     else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
+    {
+         storagebottom.move_velocity(100);
+    }
+    else {
+       storagebottom.move_velocity(0);
+    }
+}}
+
+
 /**
  * Runs the operator control code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
