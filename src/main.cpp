@@ -132,11 +132,11 @@ lemlib::Chassis chassis(drivetrain,
  * to keep execution time for this mode under a few seconds.
  */ 
 void initialize() {
-    pros::lcd::initialize();
+    /**pros::lcd::initialize();
     pros::lcd::set_text(1, "Hello PROS User!");
-    chassis.calibrate();
-    pros::lcd::register_btn1_cb(on_center_button);
+    pros::lcd::register_btn1_cb(on_center_button);*/
 
+       chassis.calibrate();
     pros::Task screenTask([&]()->void{
         while(true) {
             pros::lcd::print(0,"X:%f", chassis.getPose().x);
