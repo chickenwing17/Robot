@@ -12,13 +12,12 @@
 #include "liblvgl/misc/lv_style.h"
 //#include "liblvgl/widgets/lv_btn.h"
 #include "liblvgl/widgets/button/lv_button.h"
-
+#include "pros/imu.hpp"
 //#include "liblvgl/widgets/lv_label.h"
 #include "liblvgl/widgets/label/lv_label.h"
 #include "pros/abstract_motor.hpp"
 #include "pros/misc.h"
 #include "pros/motors.hpp"     // Include necessary headers
-#include "lemlib/api.hpp" // IWYU pragma: keep
 #include <iostream>
 #include "lemlib/asset.hpp"
 
@@ -27,16 +26,23 @@ pros::Controller master(pros::E_CONTROLLER_MASTER);
 
 pros::Motor frontroller(8);
 
-pros::Motor storagebottom(1);
+pros::Motor storagebottom(9);
 
-pros::Motor storagetop(4);
+pros::Motor storagetop(10);
 
+pros::Motor toproller(7);
+
+pros::Imu imu(6);
+//pros::adiPneumatics
 int selected_program;
 
-pros::MotorGroup left_mg({1,11,-12});    //11 is the stacked motor, 1 is the far motor, -12 is the motor under the stacked motor
-pros::MotorGroup right_mg({-18,-20, 10});  
+pros::MotorGroup left_mg({-1,11,-12});    //11 is the stacked motor, 1 is the far motor, -12 is the motor under the stacked motor
+pros::MotorGroup right_mg({17,-18, -19});  //top stacked is 17, far is 18, below stacked 19
 //pros::MotorGroup left_mg ({1});
 //pros::MotorGroup right_mg ({2});
+//19 is moving backwards when joystick goes forward
+//18 is going forward when joystick goes forward
+//17 is going backwards
 
 void createbutton(lv_obj_t *obj, int x, int y, const char *text, lv_palette_t color){
 lv_obj_set_pos(obj, x, y);
@@ -99,11 +105,11 @@ lemlib::ControllerSettings angularController(4, // proportional gain (kP)
 );
 
 // sensors for odometry
-lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel
+lemlib::OdomSensors sensors(nullptr, // &vertical
                             nullptr, // vertical tracking wheel 2, set to nullptr as we don't have a second one
                             nullptr, // horizontal tracking wheel
                             nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
-                            nullptr// inertial sensor
+                            &imu// &imu
 );
 
 
@@ -136,14 +142,16 @@ void initialize() {
     pros::lcd::set_text(1, "Hello PROS User!");
     pros::lcd::register_btn1_cb(on_center_button);*/
 
-       chassis.calibrate();
-    pros::Task screenTask([&]()->void{
-        while(true) {
-            pros::lcd::print(0,"X:%f", chassis.getPose().x);
-            pros::lcd::print(1,"Y:%f", chassis.getPose().y);
-            pros::lcd::print(2,"Theta:%f", chassis.getPose().theta);
-            lemlib::telemetrySink() ->info("chassis pose: {}", chassis.getPose());
-            pros::delay(50);
+       chassis.calibrate(); // calibrate sensors
+    // print position to brain screen
+    pros::Task screen_task([&]() {
+        while (true) {
+            // print robot location to the brain screen
+            pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
+            pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
+            pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
+            // delay to save resources
+            pros::delay(20);
         }
 
     });
@@ -176,20 +184,6 @@ lv_obj_t*buttonD = lv_button_create(screen);
 lv_obj_t*buttonE = lv_button_create(screen);
 //lv_style_t pretty;
 
-void competition_initialize() {
-     std::cout << "Loadded on 2/9/2025 7:21pm";
-  //  lv_scr_load(screen); update from scr to screen.
-lv_screen_load(screen);
-createbutton(buttonA,20,30,"Red Left", (LV_PALETTE_BLUE));
-//std::cout<<"Button created";
-createbutton(buttonB,20,130,"Red Right", (LV_PALETTE_RED));
-
-createbutton(buttonC,120,30,"Blue Right", (LV_PALETTE_RED));
-createbutton(buttonD,120,130,"Blue Left", (LV_PALETTE_RED));
-createbutton(buttonE,250,130,"Skills", (LV_PALETTE_RED));
-}
-
-
 void changeautonomous(lv_event_t*eventstart){
    // lv_obj_t*firstbutton = lv_event_get_target(eventstart);
 //lv_event_get_current_target(eventstart);
@@ -214,6 +208,23 @@ lv_obj_t* firstbutton = (lv_obj_t*) lv_event_get_target(eventstart);
 
 }
     
+
+void competition_initialize() {
+     std::cout << "Loadded on 2/9/2025 7:21pm";
+  //  lv_scr_load(screen); update from scr to screen.
+lv_screen_load(screen);
+createbutton(buttonA,20,30,"Red Left", (LV_PALETTE_BLUE));
+createbutton(buttonB,20,130,"Red Right", (LV_PALETTE_RED));
+
+createbutton(buttonC,120,30,"Blue Right", (LV_PALETTE_RED));
+createbutton(buttonD,120,130,"Blue Left", (LV_PALETTE_RED));
+createbutton(buttonE,250,130,"Skills", (LV_PALETTE_RED));
+
+       chassis.calibrate();
+}
+
+
+
 /**
  * Runs the user autonomous code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
@@ -225,12 +236,55 @@ lv_obj_t* firstbutton = (lv_obj_t*) lv_event_get_target(eventstart);
  * will be stopped. Re-enabling the robot will restart the task, not re-start it
  * from where it left off.
  */
+/**
+░█████╗░██╗░░░██╗████████╗░█████╗░███╗░░██╗░█████╗░███╗░░░███╗░█████╗░██╗░░░██╗░██████╗
+██╔══██╗██║░░░██║╚══██╔══╝██╔══██╗████╗░██║██╔══██╗████╗░████║██╔══██╗██║░░░██║██╔════╝
+███████║██║░░░██║░░░██║░░░██║░░██║██╔██╗██║██║░░██║██╔████╔██║██║░░██║██║░░░██║╚█████╗░
+██╔══██║██║░░░██║░░░██║░░░██║░░██║██║╚████║██║░░██║██║╚██╔╝██║██║░░██║██║░░░██║░╚═══██╗
+██║░░██║╚██████╔╝░░░██║░░░╚█████╔╝██║░╚███║╚█████╔╝██║░╚═╝░██║╚█████╔╝╚██████╔╝██████╔╝
+╚═╝░░╚═╝░╚═════╝░░░░╚═╝░░░░╚════╝░╚═╝░░╚══╝░╚════╝░╚═╝░░░░░╚═╝░╚════╝░░╚═════╝░╚═════╝░
+ * 
+ * 
+ */
 void autonomous() {
-/**chassis.moveToPoint(0,14,5000);
-    chassis.turnToPoint(-27,14,5000,{.forwards = false},true);
-    chassis.moveToPoint(-27,14,5000,{.forwards = false},true);
-    pros::delay(1000);*/
+chassis.setPose(0,0,0);
+chassis.moveToPoint(0,10,2000);
+
 }
+void storagerun(){ //intakes so that the block goes in the storage
+     storagetop.move_voltage(12000);
+      storagebottom.move_voltage(-12000);
+      frontroller.move_voltage(-12000);
+}
+
+void storageouttake(){  //outtakes so the block goes outside the storage
+      storagetop.move_voltage(-12000);
+    storagebottom.move_voltage(12000);
+      frontroller.move_voltage(12000);
+      toproller.move_voltage(12000);
+}
+
+void middlebeam(){ //intakes so that the block goes into the middle beam
+     storagetop.move_voltage(-12000);
+     storagebottom.move_voltage(-12000);
+    frontroller.move_voltage(-12000);
+    toproller.move_voltage(12000);
+}
+
+void longbeam(){ //intakes so that the block goes into the middle beam
+     storagetop.move_voltage(-12000);
+     storagebottom.move_voltage(-12000);
+    frontroller.move_voltage(-12000);
+    toproller.move_voltage(-12000);
+}
+
+void fullouttake(){ //outtakes so that the block outtakes to the bottom
+     storagetop.move_voltage(12000);
+     storagebottom.move_voltage(12000);
+    frontroller.move_voltage(12000);
+    toproller.move_voltage(12000);
+}
+
 
 void opcontrol() {
     pros::Controller master(pros::E_CONTROLLER_MASTER);
@@ -247,47 +301,63 @@ void opcontrol() {
         left_mg.move(turn + dir);                      // Sets left motor voltage
         right_mg.move(turn - dir);                     // Sets right motor voltage
         pros::delay(20);   
-        
-        
-
-         if(master.get_digital(pros::E_CONTROLLER_DIGITAL_RIGHT)) {
-            frontroller.move_voltage(12000);
-        } else if(master.get_digital(pros::E_CONTROLLER_DIGITAL_LEFT)) {
-            frontroller.move_voltage(-12000);
-        }
-         else {
-       frontroller.move_voltage(0);}
-
+    
+    
+        if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
+    {
+        storagerun();
+        pros::delay(20);
+    }
+     else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
+    {
+         storageouttake();
+         pros::delay(20);
+    } else {
+        storagetop.move_voltage(0);
+     storagebottom.move_voltage(0);
+    frontroller.move_voltage(0);
+    toproller.move_voltage(0);
+    pros::delay(20);
+    }
 
 
   if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R1))
     {
-        storagetop.move_voltage(12000);
+     middlebeam();
+     pros::delay(20);
     }
     else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R2))
     {
-         storagetop.move_voltage(-12000);
+           fullouttake();
+      pros::delay(20);
+    }else {
+        storagetop.move_voltage(0);
+     storagebottom.move_voltage(0);
+    frontroller.move_voltage(0);
+    toproller.move_voltage(0);
+    pros::delay(20);
     }
-    else {
-       storagetop.move_voltage(0);
-    }
 
 
-
-      if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L1))
+       if (master.get_digital(pros::E_CONTROLLER_DIGITAL_X))
     {
-        storagebottom.move_velocity(100);
+       longbeam();
+       pros::delay(20);
     }
      else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_L2))
     {
-         storagebottom.move_velocity(100);
+         storageouttake();
+         pros::delay(20);
+    } else {
+        storagetop.move_voltage(0);
+     storagebottom.move_voltage(0);
+    frontroller.move_voltage(0);
+    toproller.move_voltage(0);
+    pros::delay(20);
     }
-    else {
-       storagebottom.move_velocity(0);
-    }
-}}
+/**      */
 
-
+    }}
 /**
  * Runs the operator control code. This function will be started in its own task
  * with the default priority and stack size whenever the robot is enabled via
