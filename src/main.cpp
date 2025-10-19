@@ -247,9 +247,14 @@ createbutton(buttonE,250,130,"Skills", (LV_PALETTE_RED));
  * 
  */
 void autonomous() {
-chassis.setPose(0,0,0);
-chassis.moveToPoint(0,10,2000);
-
+//chassis.setPose(0,0,0);
+//chassis.moveToPoint(0,10,2000);
+left_mg.move_relative(2.5,80);
+right_mg.move_relative(-2.5,80);
+pros::delay(900);
+left_mg.move_relative(0,0);
+right_mg.move_relative(0,0);
+pros::delay(200);
 }
 void storagerun(){ //intakes so that the block goes in the storage
      storagetop.move_voltage(12000);
@@ -283,6 +288,13 @@ void fullouttake(){ //outtakes so that the block outtakes to the bottom
      storagebottom.move_voltage(12000);
     frontroller.move_voltage(12000);
     toproller.move_voltage(12000);
+}
+
+void storagetolongbeam(){
+     storagetop.move_voltage(-12000);
+    storagebottom.move_voltage(12000);
+     frontroller.move_voltage(-12000);
+    toproller.move_voltage(-12000);
 }
 
 
@@ -354,6 +366,12 @@ void opcontrol() {
     frontroller.move_voltage(0);
     toproller.move_voltage(0);
     pros::delay(20);
+    }
+
+     if (master.get_digital(pros::E_CONTROLLER_DIGITAL_A))
+    {
+       storagetolongbeam();
+       pros::delay(20);
     }
 /**      */
 
