@@ -21,6 +21,9 @@
 #include <iostream>
 #include "lemlib/asset.hpp"
 
+//10/28/25: 1, get battery, charger, upload cable, 
+        //  2, plug everything back into its original place + plug in rot and imu sensors.
+        //  3, calibrate imu. make sure it works
 lv_style_t pretty;
 pros::Controller master(pros::E_CONTROLLER_MASTER);
 
@@ -33,43 +36,19 @@ pros::Motor storagetop(10);
 pros::Motor toproller(7);
 
 pros::Imu imu(6);
-//pros::adiPneumatics
+
+pros::Rotation horizontalEnc(20);
+
+lemlib::TrackingWheel horizontal(&horizontalEnc, lemlib::Omniwheel::NEW_275,0); //tracking offset would be distance from wheel to middle of front to back omni wheels 
+
+
+//pros::adi::DigitalOut matchload('h');
 int selected_program;
 
 pros::MotorGroup left_mg({-1,11,-12});    //11 is the stacked motor, 1 is the far motor, -12 is the motor under the stacked motor
 pros::MotorGroup right_mg({17,-18, -19});  //top stacked is 17, far is 18, below stacked 19
 //pros::MotorGroup left_mg ({1});
 //pros::MotorGroup right_mg ({2});
-//19 is moving backwards when joystick goes forward
-//18 is going forward when joystick goes forward
-//17 is going backwards
-
-void createbutton(lv_obj_t *obj, int x, int y, const char *text, lv_palette_t color){
-lv_obj_set_pos(obj, x, y);
-lv_obj_t* screen = lv_screen_active();
-lv_obj_set_size(obj, 150, 100);
-lv_obj_t*label = lv_label_create(obj);
-lv_label_set_text(label, text);
-lv_style_init(&pretty);
-lv_style_set_bg_color(&pretty, lv_palette_main(color));
-lv_obj_add_style(obj, &pretty, 0);
-}
-
-/**
- * A callback function for LLEMU's center button.
- *
- * When this callback is fired, it will toggle line 2 of the LCD text between
- * "I was pressed!" and nothing.
- */
-void on_center_button() {
-    static bool pressed = false;
-    pressed = !pressed;
-    if (pressed) {
-        pros::lcd::set_text(2, "I was pressed!");
-    } else {
-        pros::lcd::clear_line(2);
-    }
-}
 
 // drivetrain settings
 lemlib::Drivetrain drivetrain(&left_mg, // left motor group
@@ -107,7 +86,7 @@ lemlib::ControllerSettings angularController(4, // proportional gain (kP)
 // sensors for odometry
 lemlib::OdomSensors sensors(nullptr, // &vertical
                             nullptr, // vertical tracking wheel 2, set to nullptr as we don't have a second one
-                            nullptr, // horizontal tracking wheel
+                            &horizontal, // horizontal tracking wheel
                             nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
                             &imu// &imu
 );
@@ -131,6 +110,34 @@ lemlib::Chassis chassis(drivetrain,
                  sensors, &throttleCurve, 
                  &steerCurve);
 
+
+void createbutton(lv_obj_t *obj, int x, int y, const char *text, lv_palette_t color){
+lv_obj_set_pos(obj, x, y);
+lv_obj_t* screen = lv_screen_active();
+lv_obj_set_size(obj, 150, 100);
+lv_obj_t*label = lv_label_create(obj);
+lv_label_set_text(label, text);
+lv_style_init(&pretty);
+lv_style_set_bg_color(&pretty, lv_palette_main(color));
+lv_obj_add_style(obj, &pretty, 0);
+}
+
+/**
+ * A callback function for LLEMU's center button.
+ *
+ * When this callback is fired, it will toggle line 2 of the LCD text between
+ * "I was pressed!" and nothing.
+ */
+void on_center_button() {
+    static bool pressed = false;
+    pressed = !pressed;
+    if (pressed) {
+        pros::lcd::set_text(2, "I was pressed!");
+    } else {
+        pros::lcd::clear_line(2);
+    }
+}
+
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
@@ -143,6 +150,11 @@ void initialize() {
     pros::lcd::register_btn1_cb(on_center_button);*/
 
        chassis.calibrate(); // calibrate sensors
+        imu.reset(); // instead of calibrate()
+    while (imu.is_calibrating()) {
+        pros::delay(10);
+    }
+    
     // print position to brain screen
     pros::Task screen_task([&]() {
         while (true) {
@@ -150,8 +162,10 @@ void initialize() {
             pros::lcd::print(0, "X: %f", chassis.getPose().x); // x
             pros::lcd::print(1, "Y: %f", chassis.getPose().y); // y
             pros::lcd::print(2, "Theta: %f", chassis.getPose().theta); // heading
-            // delay to save resources
+            lemlib::telemetrySink()->info("Chassis pose: {}", chassis.getPose());
+                        // delay to save resources
             pros::delay(20);
+
         }
 
     });
@@ -247,14 +261,14 @@ createbutton(buttonE,250,130,"Skills", (LV_PALETTE_RED));
  * 
  */
 void autonomous() {
-//chassis.setPose(0,0,0);
-//chassis.moveToPoint(0,10,2000);
-left_mg.move_relative(2.5,80);
+chassis.setPose(0,0,0);
+chassis.moveToPoint(0,10,2000);
+/*left_mg.move_relative(2.5,80);
 right_mg.move_relative(-2.5,80);
 pros::delay(900);
 left_mg.move_relative(0,0);
 right_mg.move_relative(0,0);
-pros::delay(200);
+pros::delay(200);*/
 }
 void storagerun(){ //intakes so that the block goes in the storage
      storagetop.move_voltage(12000);
